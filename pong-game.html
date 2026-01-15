@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pong Game</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            font-family: 'Courier New', monospace;
+        }
+        
+        #gameContainer {
+            text-align: center;
+        }
+        
+        canvas {
+            background: #000;
+            border: 4px solid #fff;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+        }
+        
+        #score {
+            color: #fff;
+            font-size: 24px;
+            margin-bottom: 20px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+        }
+        
+        #instructions {
+            color: #fff;
+            margin-top: 20px;
+            font-size: 14px;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
+        }
+    </style>
+</head>
+<body>
+    <div id="gameContainer">
+        <div id="score">Player: 0 | Computer: 0</div>
+        <canvas id="pongCanvas" width="800" height="600"></canvas>
+        <div id="instructions">
+            Use W/S or Arrow Up/Down to move your paddle<br>
+            First to 10 points wins!
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('pongCanvas');
+        const ctx = canvas.getContext('2d');
+        const scoreDisplay = document.getElementById('score');
+
+        const paddle = {
+            width: 10,
+            height: 100,
+            speed: 8
+        };
+
+        const ball = {
+            x: canvas.width / 2,
+            y: canvas.height / 2,
+            radius: 8,
+            speedX: 5,
+            speedY: 5,
+            maxSpeed: 12
+        };
+
+        const player = {
+            x: 20,
+            y: canvas.height / 2 - paddle.height / 2,
+            score: 0,
+            upPressed: false,
+            downPressed: false
+        };
+
+        const computer = {
+            x: canvas.width - 30,
+            y: canvas.height / 2 - paddle.height / 2,
+            score: 0
+        };
+
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'ArrowUp' || e.key === 'w' || e.key === 'W') {
+                player.upPressed = true;
+            }
+            if (e.key === 'ArrowDown' || e.key === 's' || e.key === 'S') {
+                player.downPressed = true;
+            }
+        });
+
+        document.addEventListener('keyup', (e) => {
+            if (e.key === 'ArrowUp' || e.key === 'w' || e.key === 'W') {
+                player.upPressed = false;
+            }
+            if (e.key === 'ArrowDown' || e.key === 's' || e.key === 'S') {
+                player.downPressed = false;
+            }
+        });
+
+        function drawRect(x, y, w, h, color) {
+            ctx.fillStyle = color;
+            ctx.fillRect(x, y, w, h);
+        }
+
+        function drawCircle(x, y, r, color) {
+            ctx.fillStyle = color;
+            ctx.beginPath();
+            ctx.arc(x, y, r, 0, Math.PI * 2);
+            ctx.fill();
+        }
+
+        function drawNet() {
+            for (let i = 0; i < canvas.height; i += 20) {
+                drawRect(canvas.width / 2 - 2, i, 4, 10, '#444');
+            }
+        }
+
+        function movePaddles() {
+            if (player.upPressed && player.y > 0) {
+                player.y -= paddle.speed;
+            }
+            if (player.downPressed && player.y < canvas.height - paddle.height) {
+                player.y += paddle.speed;
+            }
+
+            const computerCenter = computer.y + paddle.height / 2;
+            if (computerCenter < ball.y - 35) {
+                computer.y += paddle.speed * 0.7;
+            } else if (computerCenter > ball.y + 35) {
+                computer.y -= paddle.speed * 0.7;
+            }
+
+            computer.y = Math.max(0, Math.min(canvas.height - paddle.height, computer.y));
+        }
+
+        function moveBall() {
+            ball.x += ball.speedX;
+            ball.y += ball.speedY;
+
+            if (ball.y - ball.radius < 0 || ball.y + ball.radius > canvas.height) {
+                ball.speedY = -ball.speedY;
+            }
+
+            const hitPlayer = ball.x - ball.radius < player.x + paddle.width &&
+                            ball.y > player.y && ball.y < player.y + paddle.height;
+            
+            const hitComputer = ball.x + ball.radius > computer.x &&
+                              ball.y > computer.y && ball.y < computer.y + paddle.height;
+
+            if (hitPlayer || hitComputer) {
+                ball.speedX = -ball.speedX;
+                
+                const paddleY = hitPlayer ? player.y : computer.y;
+                const collidePoint = ball.y - (paddleY + paddle.height / 2);
+                const normalizedCollide = collidePoint / (paddle.height / 2);
+                
+                ball.speedY = normalizedCollide * 8;
+                
+                const speed = Math.sqrt(ball.speedX * ball.speedX + ball.speedY * ball.speedY);
+                if (speed < ball.maxSpeed) {
+                    ball.speedX *= 1.05;
+                    ball.speedY *= 1.05;
+                }
+            }
+
+            if (ball.x - ball.radius < 0) {
+                computer.score++;
+                resetBall();
+            } else if (ball.x + ball.radius > canvas.width) {
+                player.score++;
+                resetBall();
+            }
+
+            if (player.score >= 10 || computer.score >= 10) {
+                const winner = player.score >= 10 ? 'Player' : 'Computer';
+                alert(`${winner} wins!`);
+                player.score = 0;
+                computer.score = 0;
+                resetBall();
+            }
+        }
+
+        function resetBall() {
+            ball.x = canvas.width / 2;
+            ball.y = canvas.height / 2;
+            ball.speedX = (Math.random() > 0.5 ? 1 : -1) * 5;
+            ball.speedY = (Math.random() * 6 - 3);
+        }
+
+        function updateScore() {
+            scoreDisplay.textContent = `Player: ${player.score} | Computer: ${computer.score}`;
+        }
+
+        function draw() {
+            drawRect(0, 0, canvas.width, canvas.height, '#000');
+            drawNet();
+            drawRect(player.x, player.y, paddle.width, paddle.height, '#fff');
+            drawRect(computer.x, computer.y, paddle.width, paddle.height, '#fff');
+            drawCircle(ball.x, ball.y, ball.radius, '#fff');
+        }
+
+        function gameLoop() {
+            movePaddles();
+            moveBall();
+            draw();
+            updateScore();
+            requestAnimationFrame(gameLoop);
+        }
+
+        gameLoop();
+    </script>
+</body>
+</html>
